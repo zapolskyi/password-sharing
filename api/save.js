@@ -1,18 +1,15 @@
+import { passwords } from './store';
 import { v4 as uuidv4 } from 'uuid';
-
-let passwords = {}; // Временное хранилище паролей
 
 export default function handler(req, res) {
     if (req.method === 'POST') {
         const { password, expiry } = req.body;
 
-        // Генерация уникального ID
         const id = uuidv4();
         passwords[id] = { password, expiry };
 
-        // Отправка ссылки клиенту
-        res.json({ link: `${req.headers.origin}/get/${id}` });
+        res.status(200).json({ link: `https://${req.headers.host}/get?id=${id}` });
     } else {
-        res.status(405).json({ message: 'Метод не поддерживается' });
+        res.status(405).json({ error: 'Метод не поддерживается.' });
     }
 }

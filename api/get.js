@@ -1,20 +1,23 @@
-let passwords = {}; // Временное хранилище паролей
+import { passwords } from './store';
+import { parse } from 'url';
 
 export default function handler(req, res) {
-    const { id } = req.query;
+    const { query } = parse(req.url, true);
+    const id = query.id;
 
-    // Проверка существования пароля
+    if (!id || !passwords[id]) {
+        res.status(404).json({ error: 'Ссылка не существует.' });
+        return;
+    }
+
     const entry = passwords[id];
-    if (!entry) {
-        return res.status(404).send('Ссылка не существует.');
-    }
-
-    // Проверка срока действия
     const currentTime = Date.now();
+
     if (currentTime > entry.expiry) {
-        delete passwords[id];
-        return res.status(410).send('Срок действия ссылки истёк.');
+        delete passwords[id]; // Удаляем истёкшую запись
+        res.status(410).json({ error: 'Срок действия ссылки истёк.' });
+        return;
     }
 
-    res.json({ encryptedPassword: Buffer.from(entry.password).toString('base64') });
+    res.status(200).json({ encryptedPassword: Buffer.from(entry.password).toString('base64') });
 }
