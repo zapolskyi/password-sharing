@@ -3,6 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Password Sharing</title>
     <style>
@@ -32,13 +35,14 @@
         <input id="encryptedPassword" type="text" readonly autocomplete="off" />
         <button onclick="copyPassword()">Скопировать пароль</button>
 
-        <!-- Скрытое поле для настоящего пароля -->
+        <!-- Скрытое поле для хранения настоящего пароля -->
         <input id="decryptedPassword" type="hidden" />
     </div>
 
     <script>
-        let isPasswordVisible = false;
+        let isPasswordVisible = false; // Видимость пароля
 
+        // Показать или скрыть пароль
         function togglePasswordVisibility() {
             const passwordField = document.getElementById('passwordInput');
             const toggleButton = document.getElementById('togglePasswordBtn');
@@ -53,6 +57,7 @@
             isPasswordVisible = !isPasswordVisible;
         }
 
+        // Генерация ссылки
         function generateLink() {
             const password = document.getElementById('passwordInput').value;
             if (!password) {
@@ -60,9 +65,10 @@
                 return;
             }
 
-            const expiryTime = Date.now() + 24 * 60 * 60 * 1000;
+            const expiryTime = Date.now() + 24 * 60 * 60 * 1000; // Срок действия: 24 часа
 
-            fetch('/save', {
+            // Отправляем запрос на API
+            fetch('/api/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password, expiry: expiryTime })
@@ -71,9 +77,8 @@
                 .then(data => {
                     const linkResult = document.getElementById('linkResult');
                     const generatedLink = document.getElementById('generatedLink');
-                    // Указываем ссылку на клиентскую страницу с ID
-                    generatedLink.href = `${window.location.origin}?id=${data.id}`;
-                    generatedLink.textContent = `${window.location.origin}?id=${data.id}`;
+                    generatedLink.href = data.link;
+                    generatedLink.textContent = data.link;
                     linkResult.style.display = 'block';
 
                     document.getElementById('passwordInput').value = '';
@@ -81,38 +86,41 @@
                 .catch(err => console.error('Ошибка:', err));
         }
 
-        window.onload = () => {
-            clearFields();
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const id = urlParams.get('id');
-
-            if (id) {
-                fetch(`/get/${id}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.encryptedPassword) {
-                            document.getElementById('step1').style.display = 'none';
-                            document.getElementById('step2').style.display = 'block';
-
-                            // Показать зашифрованный пароль
-                            document.getElementById('encryptedPassword').value = data.encryptedPassword;
-
-                            // Расшифровать и сохранить в скрытое поле
-                            const decryptedPassword = atob(data.encryptedPassword);
-                            document.getElementById('decryptedPassword').value = decryptedPassword;
-                        }
-                    })
-                    .catch(err => console.error('Ошибка:', err));
-            }
-        };
-
+        // Очистка полей при загрузке страницы
         function clearFields() {
             document.getElementById('passwordInput').value = '';
             document.getElementById('encryptedPassword').value = '';
             document.getElementById('decryptedPassword').value = '';
         }
 
+        // Выполняется при загрузке страницы
+        window.onload = () => {
+            clearFields();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = window.location.pathname.split('/get/')[1]; // Получаем ID из ссылки
+
+            if (id) {
+                // Получаем зашифрованный пароль с сервера
+                fetch(`/api/get?id=${id}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.encryptedPassword) {
+                            document.getElementById('step1').style.display = 'none';
+                            document.getElementById('step2').style.display = 'block';
+
+                            // Отображаем зашифрованный пароль
+                            document.getElementById('encryptedPassword').value = data.encryptedPassword;
+
+                            // Сохраняем настоящий пароль в скрытое поле
+                            document.getElementById('decryptedPassword').value = atob(data.encryptedPassword);
+                        }
+                    })
+                    .catch(err => console.error('Ошибка:', err));
+            }
+        };
+
+        // Копирование настоящего пароля
         function copyPassword() {
             const decryptedPasswordField = document.getElementById('decryptedPassword');
             const decryptedPassword = decryptedPasswordField.value;
