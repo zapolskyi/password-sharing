@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Sharing</title>
+    <style>
+        #encryptedPassword {
+            font-family: monospace;
+            border: 1px solid black;
+            padding: 5px;
+            font-size: 16px;
+            width: 100%;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Создать зашифрованный пароль</h1>
+    <div id="step1">
+        <input type="password" id="passwordInput" placeholder="Введите пароль" autocomplete="off" />
+        <button id="togglePasswordBtn" onclick="togglePasswordVisibility()">Показать пароль</button>
+        <button onclick="generateLink()">Создать ссылку</button>
+        <p id="linkResult" style="display: none;">Ссылка: <a id="generatedLink" href="#" target="_blank"></a></p>
+    </div>
+
+    <h1>Получить пароль</h1>
+    <div id="step2" style="display: none;">
+        <p>Ваш зашифрованный пароль:</p>
+        <input id="encryptedPassword" type="text" readonly autocomplete="off" />
+        <button onclick="copyPassword()">Скопировать пароль</button>
+
+        <!-- Скрытое поле для настоящего пароля -->
+        <input id="decryptedPassword" type="hidden" />
+    </div>
+
+    <script>
+        let isPasswordVisible = false;
+
+        function togglePasswordVisibility() {
+            const passwordField = document.getElementById('passwordInput');
+            const toggleButton = document.getElementById('togglePasswordBtn');
+
+            if (isPasswordVisible) {
+                passwordField.type = 'password';
+                toggleButton.textContent = 'Показать пароль';
+            } else {
+                passwordField.type = 'text';
+                toggleButton.textContent = 'Скрыть пароль';
+            }
+            isPasswordVisible = !isPasswordVisible;
+        }
+
+        function generateLink() {
+            const password = document.getElementById('passwordInput').value;
+            if (!password) {
+                alert('Введите пароль!');
+                return;
+            }
+
+            const expiryTime = Date.now() + 24 * 60 * 60 * 1000;
+
+            fetch('/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password, expiry: expiryTime })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    const linkResult = document.getElementById('linkResult');
+                    const generatedLink = document.getElementById('generatedLink');
+                    // Указываем ссылку на клиентскую страницу с ID
+                    generatedLink.href = `${window.location.origin}?id=${data.id}`;
+                    generatedLink.textContent = `${window.location.origin}?id=${data.id}`;
+                    linkResult.style.display = 'block';
+
+                    document.getElementById('passwordInput').value = '';
+                })
+                .catch(err => console.error('Ошибка:', err));
+        }
+
+        window.onload = () => {
+            clearFields();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('id');
+
+            if (id) {
+                fetch(`/get/${id}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.encryptedPassword) {
+                            document.getElementById('step1').style.display = 'none';
+                            document.getElementById('step2').style.display = 'block';
+
+                            // Показать зашифрованный пароль
+                            document.getElementById('encryptedPassword').value = data.encryptedPassword;
+
+                            // Расшифровать и сохранить в скрытое поле
+                            const decryptedPassword = atob(data.encryptedPassword);
+                            document.getElementById('decryptedPassword').value = decryptedPassword;
+                        }
+                    })
+                    .catch(err => console.error('Ошибка:', err));
+            }
+        };
+
+        function clearFields() {
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('encryptedPassword').value = '';
+            document.getElementById('decryptedPassword').value = '';
+        }
+
+        function copyPassword() {
+            const decryptedPasswordField = document.getElementById('decryptedPassword');
+            const decryptedPassword = decryptedPasswordField.value;
+
+            if (!decryptedPassword) {
+                alert('Пароль недоступен!');
+                return;
+            }
+
+            navigator.clipboard.writeText(decryptedPassword)
+                .then(() => alert('Настоящий пароль скопирован!'))
+                .catch(err => console.error('Ошибка копирования:', err));
+        }
+    </script>
+</body>
+
+</html>
